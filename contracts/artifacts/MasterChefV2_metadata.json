@@ -722,11 +722,11 @@
 			]
 		},
 		"contracts/artemis-contracts/artemis-contracts/contracts/MasterChefV2.sol": {
-			"keccak256": "0xe417009988c773e268cd86852819760511381dfde685fa4278793544155da799",
+			"keccak256": "0x0c627bcbe36b502e5139a098d3363839efcf992533b9338875bf84f15e08d652",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://f314a999fe9a56e37daebeb883f7a1f7bd629acc03aaa7a62c29114f10429580",
-				"dweb:/ipfs/QmTf8zGfpMRfbGaVkUSY4dMhZ7S8Up7Hp5TovoAWPCeVKa"
+				"bzz-raw://e0e5f123704efa659733a56476e78ba5d6f27923a3f30aa086291a0069f53077",
+				"dweb:/ipfs/QmSbyMVD3XbgECYYHQ7qaBbYnDVodGGZiM2PDbbzAtMsJZ"
 			]
 		},
 		"contracts/artemis-contracts/artemis-contracts/contracts/libs/BEP20.sol": {
