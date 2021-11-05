@@ -14,24 +14,24 @@ contract IFOwithCollateral is ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
-    // Info of each user.
+    // Info of each user
     struct UserInfo {
         uint256 amount;   // How many tokens the user has provided.
         bool claimed;  // default false
         bool hasCollateral; // default false
     }
 
-    // admin address
+    // Admin address
     address public adminAddress;
-    // The raising token
+    // Raising token
     IERC20 public lpToken;
-    // The offering token
+    // Offering token
     IERC20 public offeringToken;
-    // The block number when IFO starts
+    // The block in which the IFO starts
     uint256 public startBlock;
-    // The block number when IFO ends
+    // The block in which the IFO ends
     uint256 public endBlock;
-    // total amount of raising tokens need to be raised
+    // Total amount of tokens being raised
     uint256 public raisingAmount;
     // total amount of offeringToken that will offer
     uint256 public offeringAmount;
@@ -39,16 +39,16 @@ contract IFOwithCollateral is ReentrancyGuard {
     uint256 public totalAmount;
     // 0
     uint256 public totalAdminLpWithdrawn = 0;
-    // delay for 2 weeks
+    // 2 week delay
     uint delayForFullSweep = 604800; // 14 days;
-    // The Collateral Token
+    // Collateral token
     IERC20 public collateralToken;
 
-    // The required collateral amount
+    // Required collateral amount
     uint256 public requiredCollateralAmount;
     // address => amount
     mapping (address => UserInfo) public userInfo;
-    // participators
+    // Participants
     address[] public addressList;
 
 
