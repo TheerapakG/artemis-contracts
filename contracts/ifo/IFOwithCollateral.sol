@@ -39,9 +39,8 @@ contract IFOwithCollateral is ReentrancyGuard {
     uint256 public totalAmount;
     // 0
     uint256 public totalAdminLpWithdrawn = 0;
-    uint public COLLATERAL_LOCKED_PERIOD = 604800; // 14 days
     // delay for 2 weeks
-    uint delayForFullSweep;
+    uint delayForFullSweep = 604800; // 14 days;
     // The Collateral Token
     IERC20 public collateralToken;
 
@@ -86,32 +85,32 @@ contract IFOwithCollateral is ReentrancyGuard {
     }
 
     function setOfferingAmount(uint256 _offerAmount) public onlyAdmin {
-        require (block.number < startBlock, 'not ifo time');
+        require (block.number < startBlock, 'ifo already started!');
         offeringAmount = _offerAmount;
     }
 
     function setRaisingAmount(uint256 _raisingAmount) public onlyAdmin {
-        require (block.number < startBlock, 'not ifo time');
+        require (block.number < startBlock, 'ifo already started!');
         raisingAmount= _raisingAmount;
     }
 
     function setStartBlock(uint256 _startBlock) public onlyAdmin {
-        require (block.number < startBlock, 'not ifo time');
+        require (block.number < startBlock, 'ifo already started!');
         startBlock= _startBlock;
     }
 
     function setEndBlock(uint256 _endBlock) public onlyAdmin {
-        require (block.number < startBlock, 'not ifo time');
+        require (block.number < startBlock, 'ifo already started!');
         endBlock= _endBlock;
     }
 
     function setLpToken(IERC20 _lpToken) public onlyAdmin {
-        require (block.number < startBlock, 'not ifo time');
+        require (block.number < startBlock, 'ifo already started!');
         lpToken= _lpToken;
     }
 
     function setOfferingToken(IERC20 _offeringToken) public onlyAdmin {
-        require (block.number < startBlock, 'not ifo time');
+        require (block.number < startBlock, 'ifo already started!');
         offeringToken= _offeringToken;
     }
 
@@ -215,14 +214,6 @@ contract IFOwithCollateral is ReentrancyGuard {
         require (_lpAmount < lpToken.balanceOf(address(this)), 'not enough token 0');
         lpToken.safeTransfer(address(msg.sender), _lpAmount);
         totalAdminLpWithdrawn = totalAdminLpWithdrawn + _lpAmount;
-    }
-
-
-    function retrieveCollateral() external nonReentrant {
-        require(block.number >= endBlock.add(COLLATERAL_LOCKED_PERIOD), 'collateral still locked');
-        require(userInfo[msg.sender].hasCollateral, 'User has no collateral');
-        userInfo[msg.sender].hasCollateral = false;
-        collateralToken.safeTransfer(msg.sender, requiredCollateralAmount);
     }
 
     function changeRequiredCollateralAmount(uint256 _newCollateralAmount) public onlyAdmin returns (bool) {
