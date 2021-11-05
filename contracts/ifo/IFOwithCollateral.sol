@@ -1,13 +1,13 @@
 pragma solidity 0.6.12;
 
-import '@pancakeswap/pancake-swap-lib/contracts/math/SafeMath.sol';
-import '@pancakeswap/pancake-swap-lib/contracts/token/BEP20/IBEP20.sol';
-import '@pancakeswap/pancake-swap-lib/contracts/token/BEP20/SafeBEP20.sol';
-import '@pancakeswap/pancake-swap-lib/contracts/utils/ReentrancyGuard.sol';
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 
 contract IFO is ReentrancyGuard {
   using SafeMath for uint256;
-  using SafeBEP20 for IBEP20;
+  using SafeERC20 for IERC20;
 
   // Info of each user.
   struct UserInfo {
@@ -18,9 +18,9 @@ contract IFO is ReentrancyGuard {
   // admin address
   address public adminAddress;
   // The raising token
-  IBEP20 public lpToken;
+  IERC20 public lpToken;
   // The offering token
-  IBEP20 public offeringToken;
+  IERC20 public offeringToken;
   // The block number when IFO starts
   uint256 public startBlock;
   // The block number when IFO ends
@@ -31,8 +31,12 @@ contract IFO is ReentrancyGuard {
   uint256 public offeringAmount;
   // total amount of raising tokens that have already raised
   uint256 public totalAmount;
+  // 0
+  uint256 public totalAdminLpWithdrawn = 0;
+  // delay for 2 weeks
+  uint delayForFullSweep;
   // The Collateral Token
-  IBEP20 public collateralToken;
+  IERC20 public collateralToken;
 
   // The required collateral amount
   uint256 public requiredCollateralAmount;
@@ -46,14 +50,14 @@ contract IFO is ReentrancyGuard {
   event Harvest(address indexed user, uint256 offeringAmount, uint256 excessAmount);
 
   constructor(
-      IBEP20 _lpToken,
-      IBEP20 _offeringToken,
+      IERC20 _lpToken,
+      IERC20 _offeringToken,
       uint256 _startBlock,
       uint256 _endBlock,
       uint256 _offeringAmount,
       uint256 _raisingAmount,
       address _adminAddress,
-      IBEP20 _collateralToken,
+      IERC20 _collateralToken,
       uint256 _requiredCollateralAmount
   ) public {
       lpToken = _lpToken;
@@ -74,26 +78,32 @@ contract IFO is ReentrancyGuard {
   }
 
   function setOfferingAmount(uint256 _offerAmount) public onlyAdmin {
+    require (block.number < startBlock, 'not ifo time');
     offeringAmount = _offerAmount;
   }
 
   function setRaisingAmount(uint256 _raisingAmount) public onlyAdmin {
+    require (block.number < startBlock, 'not ifo time');
     raisingAmount= _raisingAmount;
   }
 
   function setStartBlock(uint256 _startBlock) public onlyAdmin {
+    require (block.number < startBlock, 'not ifo time');
     startBlock= _startBlock;
   }
   
   function setEndBlock(uint256 _endBlock) public onlyAdmin {
+    require (block.number < startBlock, 'not ifo time');
     endBlock= _endBlock;
   }
 
-  function setLpToken(IBEP20 _lpToken) public onlyAdmin {
+  function setLpToken(IERC20 _lpToken) public onlyAdmin {
+    require (block.number < startBlock, 'not ifo time');
     lpToken= _lpToken;
   }
   
-  function setOfferingToken(IBEP20 _offeringToken) public onlyAdmin {
+  function setOfferingToken(IERC20 _offeringToken) public onlyAdmin {
+    require (block.number < startBlock, 'not ifo time');
     offeringToken= _offeringToken;
   }
 
@@ -109,6 +119,12 @@ contract IFO is ReentrancyGuard {
     userInfo[msg.sender].amount = userInfo[msg.sender].amount.add(_amount);
     totalAmount = totalAmount.add(_amount);
     emit Deposit(msg.sender, _amount);
+        // collateralTokens with transfer-tax are NOT supported.
+   if(!userInfo[msg.sender].hasCollateral) {
+       collateralToken.safeTransferFrom(msg.sender, address(this), 
+   requiredCollateralAmount);
+       userInfo[msg.sender].hasCollateral = true;
+   }
   }
 
   function harvest() public nonReentrant {
@@ -160,12 +176,24 @@ contract IFO is ReentrancyGuard {
     return addressList.length;
   }
 
-  function finalWithdraw(uint256 _lpAmount, uint256 _offerAmount) public onlyAdmin {
+  function finalWithdraw(uint256 _lpAmount) public onlyAdmin {  // uint256 _offerAmount
+    if (block.number < endBlock + delayForFullSweep) {
+        // Only check this condition for the first 14 days after IFO
+        require (_lpAmount + totalAdminLpWithdrawn <= raisingAmount, 'withdraw exceeds raisingAmount');
+    }
     require (_lpAmount < lpToken.balanceOf(address(this)), 'not enough token 0');
-    require (_offerAmount < offeringToken.balanceOf(address(this)), 'not enough token 1');
     lpToken.safeTransfer(address(msg.sender), _lpAmount);
-    offeringToken.safeTransfer(address(msg.sender), _offerAmount);
+    totalAdminLpWithdrawn = totalAdminLpWithdrawn + _lpAmount;
   }
+   
+
+   function retrieveCollateral() external nonReentrant {
+       require(block.number >= endBlock.add( COLLATERAL_LOCKED_PERIOD), 
+    “collateral still locked”);
+       require(userInfo[msg.sender].hasCollateral, “User has no collateral”);
+       userInfo[msg.sender].hasCollateral = false;
+       collateralToken.safeTransfer(msg.sender, requiredCollateralAmount);
+   }
   function changeRequiredCollateralAmount(uint256 _newCollateralAmount) public onlyAdmin returns (bool) {
         uint256 oldCollateralAmount = requiredCollateralAmount;
         requiredCollateralAmount = _newCollateralAmount;
@@ -180,4 +208,5 @@ contract IFO is ReentrancyGuard {
         uint256 newRequiredCollateral,
         uint256 oldRequiredCollateral
     );
+    
 }
