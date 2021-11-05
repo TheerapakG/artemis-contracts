@@ -55,6 +55,11 @@ contract IFOwithCollateral is ReentrancyGuard {
     event Deposit(address indexed user, uint256 amount);
     event DepositCollateral(address indexed user, uint256 amount);
     event Harvest(address indexed user, uint256 offeringAmount, uint256 excessAmount);
+    event RequiredCollateralChanged(
+        address collateralToken,
+        uint256 newRequiredCollateral,
+        uint256 oldRequiredCollateral
+    );
 
     constructor(
         IERC20 _lpToken,
@@ -67,6 +72,14 @@ contract IFOwithCollateral is ReentrancyGuard {
         IERC20 _collateralToken,
         uint256 _requiredCollateralAmount
     ) public {
+
+        _lpToken.balanceOf(address(this)); // Validate token address
+        _offeringToken.balanceOf(address(this)); // Validate token address
+        _collateralToken.balanceOf(address(this)); // Validate token address
+        require(_endBlock > _startBlock, 'start <= end');
+        require(_startBlock > block.number, 'too soon');
+        require(_adminAddress != address(0));
+
         lpToken = _lpToken;
         offeringToken = _offeringToken;
         startBlock = _startBlock;
@@ -133,10 +146,10 @@ contract IFOwithCollateral is ReentrancyGuard {
         require (_amount > 0, 'need _amount > 0');
         require (userInfo[msg.sender].hasCollateral, 'user needs to stake collateral first');
 
-        lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
         if (userInfo[msg.sender].amount == 0) {
-            addressList.push(address(msg.sender));
+            addressList.push(msg.sender);
         }
+        lpToken.safeTransferFrom(msg.sender, address(this), _amount);
         userInfo[msg.sender].amount = userInfo[msg.sender].amount.add(_amount);
         totalAmount = totalAmount.add(_amount);
         emit Deposit(msg.sender, _amount);
@@ -150,18 +163,18 @@ contract IFOwithCollateral is ReentrancyGuard {
         uint256 offeringTokenAmount = getOfferingAmount(msg.sender);
         uint256 refundingTokenAmount = getRefundingAmount(msg.sender);
 
-        collateralToken.safeTransfer(address(msg.sender), requiredCollateralAmount);
+        collateralToken.safeTransfer(msg.sender, requiredCollateralAmount);
         if (offeringTokenAmount > 0) {
-            offeringToken.safeTransfer(address(msg.sender), offeringTokenAmount);
+            offeringToken.safeTransfer(msg.sender, offeringTokenAmount);
         }
         if (refundingTokenAmount > 0) {
-            lpToken.safeTransfer(address(msg.sender), refundingTokenAmount);
+            lpToken.safeTransfer(msg.sender, refundingTokenAmount);
         }
         userInfo[msg.sender].claimed = true;
         emit Harvest(msg.sender, offeringTokenAmount, refundingTokenAmount);
     }
 
-    function hasHarvest(address _user) external view returns(bool) {
+    function hasHarvested(address _user) external view returns(bool) {
         return userInfo[_user].claimed;
     }
 
@@ -171,7 +184,7 @@ contract IFOwithCollateral is ReentrancyGuard {
 
     // allocation 100000 means 0.1(10%), 1 meanss 0.000001(0.0001%), 1000000 means 1(100%)
     function getUserAllocation(address _user) public view returns(uint256) {
-        return userInfo[_user].amount.mul(1e12).div(totalAmount).div(1e6);
+        return userInfo[_user].amount.mul(1e6).div(totalAmount);
     }
 
     // get the amount of IFO token you will get
@@ -206,17 +219,23 @@ contract IFOwithCollateral is ReentrancyGuard {
         return addressList.length;
     }
 
-    function finalWithdraw(uint256 _lpAmount) public onlyAdmin {  // uint256 _offerAmount
+    function finalOfferingTokenWithdraw() public onlyAdmin {
+        require (block.number > endBlock + delayForFullSweep, 'Must wait longer');
+        offeringToken.safeTransfer(msg.sender, offeringToken.balanceOf(address(this)));
+    }
+
+    function finalWithdraw(uint256 _lpAmount) public onlyAdmin {
         if (block.number < endBlock + delayForFullSweep) {
             // Only check this condition for the first 14 days after IFO
             require (_lpAmount + totalAdminLpWithdrawn <= raisingAmount, 'withdraw exceeds raisingAmount');
         }
         require (_lpAmount < lpToken.balanceOf(address(this)), 'not enough token 0');
-        lpToken.safeTransfer(address(msg.sender), _lpAmount);
+        lpToken.safeTransfer(msg.sender, _lpAmount);
         totalAdminLpWithdrawn = totalAdminLpWithdrawn + _lpAmount;
     }
 
     function changeRequiredCollateralAmount(uint256 _newCollateralAmount) public onlyAdmin returns (bool) {
+        require (block.number < startBlock, 'ifo already started!');
         uint256 oldCollateralAmount = requiredCollateralAmount;
         requiredCollateralAmount = _newCollateralAmount;
         emit RequiredCollateralChanged(
@@ -225,10 +244,5 @@ contract IFOwithCollateral is ReentrancyGuard {
             oldCollateralAmount
         );
     }
-    event RequiredCollateralChanged(
-        address collateralToken,
-        uint256 newRequiredCollateral,
-        uint256 oldRequiredCollateral
-    );
 
 }
