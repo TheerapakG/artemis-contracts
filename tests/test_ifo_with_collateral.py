@@ -1,10 +1,6 @@
 import pytest
 
 from brownie import accounts, reverts, chain
-from web3 import Web3
-
-web3 = Web3()
-
 
 
 @pytest.fixture
@@ -42,7 +38,7 @@ def ifo1(IFOwithCollateral, mis, wone, rvrs):
         wone,
         rvrs,
         0,
-        20,
+        100,
         offeringAmount,
         int(1e18 * 1000),
         accounts[0],
@@ -82,4 +78,23 @@ def test_ifo1_user_workflow_green_path(ifo1, mis, wone, rvrs):
     assert int((wone_bal_before - wone_bal_after)/1e18) == 100, "WONE balance is messed up"
     assert ifo1.getUserAllocation(accounts[1]) == 1000000, "User didn't get credit for depositing WONE"
 
+    # Validate harvest doesn't work yet - this should revert
+    with reverts('not harvest time'):
+        ifo1.harvest({'from': accounts[1]})
+
+    # Go to end of IFO and harvest
+    chain.mine(100)
+    mis_bal_before = mis.balanceOf(accounts[1])
+    wone_bal_before = wone.balanceOf(accounts[1])
+    rvrs_bal_before = rvrs.balanceOf(accounts[1])
+
+    ifo1.harvest({'from': accounts[1]})
+
+    mis_bal_after = mis.balanceOf(accounts[1])
+    wone_bal_after = wone.balanceOf(accounts[1])
+    rvrs_bal_after = rvrs.balanceOf(accounts[1])
+
+    assert int((mis_bal_after - mis_bal_before)/1e18) == 800, "MIS balance is messed up"
+    assert int((wone_bal_after - wone_bal_before)/1e18) == 0, "WONE balance is messed up"
+    assert int((rvrs_bal_after - rvrs_bal_before)/1e18) == 100, "RVRS balance is messed up"
 
