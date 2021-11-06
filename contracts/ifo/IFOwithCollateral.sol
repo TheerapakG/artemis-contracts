@@ -160,6 +160,7 @@ contract IFOwithCollateral is ReentrancyGuard {
         // Will refund Collateral, give IFO token, and return an overflow lpToken
         require (block.number > endBlock, 'not harvest time');
         require (!userInfo[msg.sender].claimed, 'already claimed');
+        require (userInfo[msg.sender].hasCollateral, 'user needs to stake collateral first');
         uint256 offeringTokenAmount = getOfferingAmount(msg.sender);
         uint256 refundingTokenAmount = getRefundingAmount(msg.sender);
 
